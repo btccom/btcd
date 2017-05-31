@@ -309,7 +309,7 @@ func (s *signOpCode) IncompleteSigs(data *txVerifyData) (map[int]*SignatureInfo,
 			}
 
 			if err != nil {
-				continue;
+				continue
 			}
 
 			var shash []byte // = cs.GetCachedSigHash(hashType)
