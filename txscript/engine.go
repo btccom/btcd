@@ -130,6 +130,7 @@ type Engine struct {
 	flags           ScriptFlags
 	sigCache        *SigCache
 	hashCache       *TxSigHashes
+	signOpCache     *SignOpCache
 	bip16           bool     // treat execution as pay-to-script-hash
 	savedFirstStack [][]byte // stack from first script for bip16 scripts
 	witnessVersion  int
@@ -527,6 +528,41 @@ func (vm *Engine) Step() (done bool, err error) {
 // Execute will execute all scripts in the script engine and return either nil
 // for successful validation or an error if one occurred.
 func (vm *Engine) Execute() (err error) {
+	return vm.execute()
+}
+
+// ExecuteSignOp will execute all scripts in the script engine, and depending
+// on whether an error occurred or allowIncomplete=true, will return a SignOpCache
+// containing a trace of all signature opcodes in the script, or an error.
+func (vm *Engine) ExecuteSignOp(allowIncomplete bool) (*SignOpCache, error) {
+	var sigVersion int
+	if vm.witness {
+		sigVersion = 1
+	} else {
+		sigVersion = 0
+	}
+
+	vm.signOpCache = NewSignOpCache(&txVerifyData{&vm.tx, vm.txIdx, vm.inputAmount, sigVersion, vm.flags})
+	err := vm.execute()
+
+	checkErr := true
+	if allowIncomplete {
+		//if err != nil {
+		checkErr = false
+		//		}
+	}
+
+	if checkErr && err != nil {
+		return nil, err
+	}
+
+	cache := vm.signOpCache
+	vm.signOpCache = nil
+
+	return cache, nil
+}
+
+func (vm *Engine) execute() (err error) {
 	done := false
 	for !done {
 		log.Tracef("%v", newLogClosure(func() string {
