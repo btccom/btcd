@@ -289,7 +289,7 @@ func runSignOpTestFixture(t *testing.T, fixture *SignOpCacheFixture) {
 	}
 }
 
-func checkSigsAgainstFixture(sigs map[int]*btcec.Signature, opFixture *signOpCode) error {
+func checkSigsAgainstFixture(sigs map[int]*SignatureInfo, opFixture *signOpCode) error {
 	if len(sigs) != len(opFixture.keyOp) {
 		return fmt.Errorf("Number of sigs does not match fixture, expected %d, got %d", len(opFixture.keyOp), len(sigs))
 	}
@@ -297,7 +297,7 @@ func checkSigsAgainstFixture(sigs map[int]*btcec.Signature, opFixture *signOpCod
 	for i := 0; i < len(opFixture.uncheckedKeys); i++ {
 		if opFixture.keyOp[i] != nil {
 			keyOp := opFixture.keyOp[i]
-			if !keyOp.sig.IsEqual(sigs[i]) {
+			if !keyOp.sig.IsEqual(sigs[i].Signature) {
 				return fmt.Errorf("bad sig at %d ", i)
 			}
 		}
