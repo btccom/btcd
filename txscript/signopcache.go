@@ -50,7 +50,7 @@ func (c *SignOpCache) IsComplete(idx int) (bool, bool, error) {
 	if idx < 0 || idx > len(c.ops) {
 		return false, false, fmt.Errorf("no signature operation at index %d", idx)
 	}
-	
+
 	if idx > 0 {
 		for i := 0; i < idx; i++ {
 			if !c.ops[idx].HasAllSignatures() {
@@ -60,6 +60,44 @@ func (c *SignOpCache) IsComplete(idx int) (bool, bool, error) {
 	}
 
 	return true, c.ops[idx].HasAllSignatures(), nil
+}
+
+// GetSignOps returns a map of keyIdx => publicKey, and keyIdx => signature,
+// where the signatures were successfully validated in the script. All public
+// keys will be returned, so an association between signature & validating public
+// key is maintained.
+func (c *SignOpCache) GetSignOps(idx int) (map[int]*btcec.PublicKey, map[int]*btcec.Signature, error) {
+	op := c.getIdx(idx)
+	if op == nil {
+		return nil, nil, fmt.Errorf("no signature operation at index %d", idx)
+	}
+
+	sigs, err := op.Sigs()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	keys := make(map[int]*btcec.PublicKey, len(op.uncheckedKeys))
+	for i := 0; i < len(op.uncheckedKeys); i++ {
+		var pubKey *btcec.PublicKey
+		keyOp, ok := op.keyOp[i]
+
+		if ok {
+			pubKey = keyOp.pubKey
+		}
+
+		if pubKey == nil {
+			var err error
+			pubKey, err = btcec.ParsePubKey(op.uncheckedKeys[i], btcec.S256())
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		keys[len(op.uncheckedKeys)-1-i] = pubKey
+	}
+
+	return keys, sigs, nil
 }
 
 // NewSignOpCache initializes a new SignOpCache
