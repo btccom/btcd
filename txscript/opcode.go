@@ -2043,15 +2043,27 @@ func opcodeCodeSeparator(op *parsedOpcode, vm *Engine) error {
 //
 // Stack transformation: [... signature pubkey] -> [... bool]
 func opcodeCheckSig(op *parsedOpcode, vm *Engine) error {
+	signOper := &signOpCode{}
+	err := signOper.InitCheckSig(int(op.opcode.value), vm.subScript())
+	if err != nil {
+		return err
+	}
+
+	if vm.signOpCache != nil {
+		vm.signOpCache.add(vm.scriptOff, signOper)
+	}
+
 	pkBytes, err := vm.dstack.PopByteArray()
 	if err != nil {
 		return err
 	}
+	signOper.stackKey(pkBytes)
 
 	fullSigBytes, err := vm.dstack.PopByteArray()
 	if err != nil {
 		return err
 	}
+	signOper.stackSignature(fullSigBytes)
 
 	// The signature actually needs needs to be longer than this, but at
 	// least 1 byte is needed for the hash type below.  The full length is
@@ -2087,6 +2099,17 @@ func opcodeCheckSig(op *parsedOpcode, vm *Engine) error {
 
 	// Get script starting from the most recent OP_CODESEPARATOR.
 	subScript := vm.subScript()
+
+	// With BIP 143, Bitcoin Core's 'FindAndDelete' function is no longer
+	// used to remove signature data for the script. Therefore, we only
+	// remove the data if we're not in witness execution mode.
+	if !vm.isWitnessVersionActive(0) {
+		// Remove the signature since there is no way for a signature
+		// to sign itself.
+		subScript = removeOpcodeByData(subScript, fullSigBytes)
+	}
+
+	signOper.hashScript(subScript)
 
 	// Generate the signature hash based on the signature hash type.
 	var hash []byte
@@ -2144,6 +2167,12 @@ func opcodeCheckSig(op *parsedOpcode, vm *Engine) error {
 		valid = signature.Verify(hash, pubKey)
 	}
 
+	signOper.signature(&signOp{
+		hashType: hashType,
+		sig:      signature,
+		pubKey:   pubKey,
+	})
+
 	if !valid && vm.hasFlag(ScriptVerifyNullFail) && len(sigBytes) > 0 {
 		str := "signature not empty on failed checksig"
 		return scriptError(ErrNullFail, str)
@@ -2195,6 +2224,14 @@ type parsedSigInfo struct {
 // Stack transformation:
 // [... dummy [sig ...] numsigs [pubkey ...] numpubkeys] -> [... bool]
 func opcodeCheckMultiSig(op *parsedOpcode, vm *Engine) error {
+	signOper := &signOpCode{}
+	err := signOper.InitCheckMultiSig(int(op.opcode.value), vm.subScript())
+	if err != nil {
+		return err
+	}
+	if vm.signOpCache != nil {
+		vm.signOpCache.add(vm.scriptOff, signOper)
+	}
 	numKeys, err := vm.dstack.PopInt()
 	if err != nil {
 		return err
@@ -2225,6 +2262,7 @@ func opcodeCheckMultiSig(op *parsedOpcode, vm *Engine) error {
 			return err
 		}
 		pubKeys = append(pubKeys, pubKey)
+		signOper.stackKey(pubKey)
 	}
 
 	numSigs, err := vm.dstack.PopInt()
@@ -2252,6 +2290,7 @@ func opcodeCheckMultiSig(op *parsedOpcode, vm *Engine) error {
 		}
 		sigInfo := &parsedSigInfo{signature: signature}
 		signatures = append(signatures, sigInfo)
+		signOper.stackSignature(signature)
 	}
 
 	// A bug in the original Satoshi client implementation means one more
@@ -2282,6 +2321,8 @@ func opcodeCheckMultiSig(op *parsedOpcode, vm *Engine) error {
 			script = removeOpcodeByData(script, sigInfo.signature)
 		}
 	}
+
+	signOper.hashScript(script)
 
 	success := true
 	numPubKeys++
@@ -2395,9 +2436,16 @@ func opcodeCheckMultiSig(op *parsedOpcode, vm *Engine) error {
 		}
 
 		if valid {
+			signOper.signature(&signOp{
+				hashType: hashType,
+				sig:      parsedSig,
+				pubKey:   parsedPubKey,
+			})
 			// PubKey verified, move on to the next signature.
 			signatureIdx++
 			numSignatures--
+		} else {
+			signOper.skipKey(parsedPubKey)
 		}
 	}
 
