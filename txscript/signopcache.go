@@ -28,7 +28,35 @@ type SignOpCache struct {
 // form of a public key parsed during
 type PublicKeyInfo struct {
 	Format btcutil.PubKeyFormat
-	Key *btcec.PublicKey
+	Key    *btcec.PublicKey
+}
+
+// Serialize will take the known key format and btcec.PublicKey and
+// produce the serialized key.
+func (keyInfo *PublicKeyInfo) Serialize() ([]byte, error) {
+	switch keyInfo.Format {
+	case btcutil.PKFHybrid:
+		return keyInfo.Key.SerializeHybrid(), nil
+	case btcutil.PKFCompressed:
+		return keyInfo.Key.SerializeCompressed(), nil
+	case btcutil.PKFUncompressed:
+		return keyInfo.Key.SerializeHybrid(), nil
+	default:
+		return nil, fmt.Errorf("Unsupported public key format")
+	}
+}
+
+type SignatureInfo struct {
+	HashType  SigHashType
+	Signature *btcec.Signature
+}
+
+// Serialize will take the hashType and *btcec.Signature and
+// produce the txin signature
+func (sigInfo *SignatureInfo) Serialize() []byte {
+	ecSig := sigInfo.Signature.Serialize()
+	ecSig = append(ecSig, byte(int(sigInfo.HashType)))
+	return ecSig
 }
 
 // add associates a signOpCode with a particular script offset.
@@ -70,13 +98,13 @@ func (c *SignOpCache) IsComplete(idx int) (bool, bool, error) {
 	return true, c.ops[idx].HasAllSignatures(), nil
 }
 
-func (c *SignOpCache) getSignOps(complete bool, idx int) (map[int]*PublicKeyInfo, map[int]*btcec.Signature, error) {
+func (c *SignOpCache) getSignOps(complete bool, idx int) (map[int]*PublicKeyInfo, map[int]*SignatureInfo, error) {
 	op := c.getIdx(idx)
 	if op == nil {
 		return nil, nil, fmt.Errorf("no signature operation at index %d", idx)
 	}
 
-	var sigs map[int]*btcec.Signature
+	var sigs map[int]*SignatureInfo
 	var err error
 	if complete {
 		sigs, err = op.Sigs()
@@ -115,7 +143,7 @@ func (c *SignOpCache) getSignOps(complete bool, idx int) (map[int]*PublicKeyInfo
 			}
 		}
 
-		keys[len(op.uncheckedKeys) - 1 - i] = &PublicKeyInfo{pkFormat, pubKey}
+		keys[len(op.uncheckedKeys)-1-i] = &PublicKeyInfo{pkFormat, pubKey}
 	}
 
 	return keys, sigs, nil
@@ -130,11 +158,11 @@ func (c *SignOpCache) getSignOps(complete bool, idx int) (map[int]*PublicKeyInfo
 // where the signatures were successfully validated in the script. All public
 // keys will be returned, so an association between signature & validating public
 // key is maintained.
-func (c *SignOpCache) GetSignOps(idx int) (map[int]*PublicKeyInfo, map[int]*btcec.Signature, error) {
+func (c *SignOpCache) GetSignOps(idx int) (map[int]*PublicKeyInfo, map[int]*SignatureInfo, error) {
 	return c.getSignOps(true, idx)
 }
 
-func (c *SignOpCache) GetIncompleteOps(idx int) (map[int]*PublicKeyInfo, map[int]*btcec.Signature, error) {
+func (c *SignOpCache) GetIncompleteOps(idx int) (map[int]*PublicKeyInfo, map[int]*SignatureInfo, error) {
 	return c.getSignOps(false, idx)
 }
 
@@ -209,20 +237,19 @@ func (s *signOpCode) HasAllSignatures() bool {
 
 // Sigs returns a map of pubKeyIdx => signature. It requires
 // that the script successfully executed.
-func (s *signOpCode) Sigs() (map[int]*btcec.Signature, error) {
+func (s *signOpCode) Sigs() (map[int]*SignatureInfo, error) {
 	if !s.HasAllSignatures() {
 		return nil, fmt.Errorf("cannot call Sigs when state is still incomplete")
 	}
 
 	numKeys := len(s.uncheckedKeys)
-	signatures := make(map[int]*btcec.Signature, numKeys)
+	signatures := make(map[int]*SignatureInfo, numKeys)
 	for i := 0; i < len(s.uncheckedKeys); i++ {
 		if s.keyOp[i] == nil {
 			continue
 		}
 
-		sig := s.keyOp[i].sig
-		signatures[numKeys-1-i] = sig
+		signatures[numKeys-1-i] = &SignatureInfo{s.keyOp[i].hashType, s.keyOp[i].sig}
 	}
 
 	return signatures, nil
@@ -232,9 +259,9 @@ func (s *signOpCode) Sigs() (map[int]*btcec.Signature, error) {
 // and attempts to build of pubkeyIdx => signature. It should only be used
 // called for the _first_ incomplete signOpCode, since we can't assert much
 // about the stack beyond this point.
-func (s *signOpCode) IncompleteSigs(data *txVerifyData) (map[int]*btcec.Signature, error) {
+func (s *signOpCode) IncompleteSigs(data *txVerifyData) (map[int]*SignatureInfo, error) {
 	sigs := s.uncheckedSigs
-	signatures := make(map[int]*btcec.Signature, len(s.uncheckedKeys))
+	signatures := make(map[int]*SignatureInfo, len(s.uncheckedKeys))
 	numKeys := len(s.uncheckedKeys)
 	for k := 0; k < len(s.uncheckedKeys); k++ {
 		var subscript []parsedOpcode
@@ -302,7 +329,7 @@ func (s *signOpCode) IncompleteSigs(data *txVerifyData) (map[int]*btcec.Signatur
 
 			if valid {
 				sigs = removeSig(sigs, s)
-				signatures[numKeys-1-k] = parsedSig
+				signatures[numKeys-1-k] = &SignatureInfo{hashType, parsedSig}
 				continue
 			}
 		}
