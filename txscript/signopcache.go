@@ -40,6 +40,28 @@ func (c *SignOpCache) getIdx(idx int) *signOpCode {
 	return c.ops[idx]
 }
 
+// IsComplete returns whether the path up to idx, and idx itself
+// are fully complete, by return two boolean return values. It's
+// third return value is set only if `idx` is out of range.
+// For the path to complete, ops[0->idx-1] must be complete.
+// For the index to be complete, the path and the final op must
+// be complete.
+func (c *SignOpCache) IsComplete(idx int) (bool, bool, error) {
+	if idx < 0 || idx > len(c.ops) {
+		return false, false, fmt.Errorf("no signature operation at index %d", idx)
+	}
+	
+	if idx > 0 {
+		for i := 0; i < idx; i++ {
+			if !c.ops[idx].HasAllSignatures() {
+				return false, false, nil
+			}
+		}
+	}
+
+	return true, c.ops[idx].HasAllSignatures(), nil
+}
+
 // NewSignOpCache initializes a new SignOpCache
 func NewSignOpCache(data *txVerifyData) *SignOpCache {
 	return &SignOpCache{
