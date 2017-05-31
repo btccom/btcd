@@ -134,7 +134,7 @@ func (c *SignOpCache) GetSignOps(idx int) (map[int]*PublicKeyInfo, map[int]*btce
 	return c.getSignOps(true, idx)
 }
 
-func (c *SignOpCache) GetIncompleteOps(idx int) (map[int]*btcec.PublicKey, map[int]*btcec.Signature, error) {
+func (c *SignOpCache) GetIncompleteOps(idx int) (map[int]*PublicKeyInfo, map[int]*btcec.Signature, error) {
 	return c.getSignOps(false, idx)
 }
 
