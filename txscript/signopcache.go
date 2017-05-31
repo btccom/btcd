@@ -70,6 +70,57 @@ func (c *SignOpCache) IsComplete(idx int) (bool, bool, error) {
 	return true, c.ops[idx].HasAllSignatures(), nil
 }
 
+func (c *SignOpCache) getSignOps(complete bool, idx int) (map[int]*PublicKeyInfo, map[int]*btcec.Signature, error) {
+	op := c.getIdx(idx)
+	if op == nil {
+		return nil, nil, fmt.Errorf("no signature operation at index %d", idx)
+	}
+
+	var sigs map[int]*btcec.Signature
+	var err error
+	if complete {
+		sigs, err = op.Sigs()
+	} else {
+		sigs, err = op.IncompleteSigs(c.verifyData)
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+
+	keys := make(map[int]*PublicKeyInfo, len(op.uncheckedKeys))
+	for i := 0; i < len(op.uncheckedKeys); i++ {
+		keyBytes := op.uncheckedKeys[0]
+
+		var pubKey *btcec.PublicKey
+
+		if complete {
+			keyOp, ok := op.keyOp[i]
+			if ok {
+				pubKey = keyOp.pubKey
+			}
+		}
+
+		pkFormat := btcutil.PKFUncompressed
+		switch keyBytes[0] {
+		case 0x02, 0x03:
+			pkFormat = btcutil.PKFCompressed
+		case 0x06, 0x07:
+			pkFormat = btcutil.PKFHybrid
+		}
+
+		if pubKey == nil {
+			pubKey, err = btcec.ParsePubKey(keyBytes, btcec.S256())
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+
+		keys[len(op.uncheckedKeys) - 1 - i] = &PublicKeyInfo{pkFormat, pubKey}
+	}
+
+	return keys, sigs, nil
+}
+
 // GetSignOps returns a map of keyIdx => publicKey, and keyIdx => signature,
 // where the signatures were successfully validated in the script. All public
 // keys will be returned, so an association between signature & validating public
@@ -80,46 +131,11 @@ func (c *SignOpCache) IsComplete(idx int) (bool, bool, error) {
 // keys will be returned, so an association between signature & validating public
 // key is maintained.
 func (c *SignOpCache) GetSignOps(idx int) (map[int]*PublicKeyInfo, map[int]*btcec.Signature, error) {
-	op := c.getIdx(idx)
-	if op == nil {
-		return nil, nil, fmt.Errorf("no signature operation at index %d", idx)
-	}
+	return c.getSignOps(true, idx)
+}
 
-	sigs, err := op.Sigs()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	keys := make(map[int]*PublicKeyInfo, len(op.uncheckedKeys))
-	for i := 0; i < len(op.uncheckedKeys); i++ {
-		var pubKey *btcec.PublicKey
-		keyOp, ok := op.keyOp[i]
-
-		if ok {
-			pubKey = keyOp.pubKey
-		}
-
-		keyBytes := op.uncheckedKeys[0]
-		pkFormat := btcutil.PKFUncompressed
-		switch keyBytes[0] {
-		case 0x02, 0x03:
-			pkFormat = btcutil.PKFCompressed
-		case 0x06, 0x07:
-			pkFormat = btcutil.PKFHybrid
-		}
-
-		if pubKey == nil {
-			var err error
-			pubKey, err = btcec.ParsePubKey(keyBytes, btcec.S256())
-			if err != nil {
-				panic(err)
-			}
-		}
-
-		keys[len(op.uncheckedKeys) - 1 - i] = &PublicKeyInfo{pkFormat, pubKey}
-	}
-
-	return keys, sigs, nil
+func (c *SignOpCache) GetIncompleteOps(idx int) (map[int]*btcec.PublicKey, map[int]*btcec.Signature, error) {
+	return c.getSignOps(false, idx)
 }
 
 // NewSignOpCache initializes a new SignOpCache
