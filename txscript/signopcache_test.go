@@ -125,11 +125,11 @@ func parseSignSections(script []byte) ([][]byte, error) {
 	}
 
 	sectionStart := 0
-	sections := make([][]byte, 0);
+	sections := make([][]byte, 0)
 	for i := 0; i < len(pops); i++ {
 		opcode := int(pops[i].opcode.value)
 		if opcode == OP_CHECKSIG || opcode == OP_CHECKSIGVERIFY || opcode == OP_CHECKMULTISIG || opcode == OP_CHECKMULTISIGVERIFY {
-			section, err := unparseScript(pops[sectionStart:i + 1])
+			section, err := unparseScript(pops[sectionStart : i+1])
 			if err != nil {
 				return nil, err
 			}
@@ -192,7 +192,7 @@ func makeP2shFixture(params *chaincfg.Params, txHex string, txIdx int, txValue i
 		}
 
 		fixture.expectedOp = append(fixture.expectedOp, &signOpCode{
-			opcode:        int(section[len(section) - 1]),
+			opcode:        int(section[len(section)-1]),
 			rawScript:     rawScript,
 			signScript:    rawScript,
 			keys:          keys,
@@ -204,7 +204,6 @@ func makeP2shFixture(params *chaincfg.Params, txHex string, txIdx int, txValue i
 
 	return fixture
 }
-
 
 func makeTx001Fixture(params *chaincfg.Params) *SignOpCacheFixture {
 	txHex := "0100000001951aefe7968498e74fc5fc52d81009d95a01eb2eaae67cc9fcef61b68ebbc0b800000000fd1401004730440220516b0f747d126b12cdfb891239b3dfc547a719175edfe0309503e76d6f1ea27602205ff41618e5019dcd748ae51b7e4aa43b3d0acb0d3ecff4c05aa43ad87a1e2df9014cc95241043e49ec68abcf030dfc8ec7dfcb388b17fed99134d5f910c87e947f0cc86a1cf9c29b27ddbd0443b6d40fc5cb35eb13fcb41bf0e4f63d74bea2576e8db07dd1864104e38fa9a9dfa216d45d90cfca8ca2566f2d9aa9c1846e6dd6ab0756c07262abe1c7f8a60ff2357bc2ea9fb597bfbcf4d3e4fe605a294171dc32421578125136e0410473682ed776e9d0afee6cd52f4a4b20ad458956ef5567d5747853b689bb44a6a90736b515aa63bc5703c7d1a5662b7e2421b9436597fd8bf8da216f2b1cba01cc53aeffffffff01010000000000000017a914221154d32a82ae83f9e75431feae77a37af771a68700000000"
