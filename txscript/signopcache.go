@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/wire"
+	"github.com/btcsuite/btcutil"
 )
 
 type txVerifyData struct {
@@ -21,6 +22,13 @@ type SignOpCache struct {
 	verifyData *txVerifyData
 	pcToIdx    map[int]int
 	nextIdx    int
+}
+
+// PublicKeyInfo stores the necessary data to reproduce the serialized
+// form of a public key parsed during
+type PublicKeyInfo struct {
+	Format btcutil.PubKeyFormat
+	Key *btcec.PublicKey
 }
 
 // add associates a signOpCode with a particular script offset.
@@ -66,7 +74,12 @@ func (c *SignOpCache) IsComplete(idx int) (bool, bool, error) {
 // where the signatures were successfully validated in the script. All public
 // keys will be returned, so an association between signature & validating public
 // key is maintained.
-func (c *SignOpCache) GetSignOps(idx int) (map[int]*btcec.PublicKey, map[int]*btcec.Signature, error) {
+
+// GetSignOps returns a map of keyIdx => publicKey, and keyIdx => signature,
+// where the signatures were successfully validated in the script. All public
+// keys will be returned, so an association between signature & validating public
+// key is maintained.
+func (c *SignOpCache) GetSignOps(idx int) (map[int]*PublicKeyInfo, map[int]*btcec.Signature, error) {
 	op := c.getIdx(idx)
 	if op == nil {
 		return nil, nil, fmt.Errorf("no signature operation at index %d", idx)
@@ -77,7 +90,7 @@ func (c *SignOpCache) GetSignOps(idx int) (map[int]*btcec.PublicKey, map[int]*bt
 		return nil, nil, err
 	}
 
-	keys := make(map[int]*btcec.PublicKey, len(op.uncheckedKeys))
+	keys := make(map[int]*PublicKeyInfo, len(op.uncheckedKeys))
 	for i := 0; i < len(op.uncheckedKeys); i++ {
 		var pubKey *btcec.PublicKey
 		keyOp, ok := op.keyOp[i]
@@ -86,15 +99,24 @@ func (c *SignOpCache) GetSignOps(idx int) (map[int]*btcec.PublicKey, map[int]*bt
 			pubKey = keyOp.pubKey
 		}
 
+		keyBytes := op.uncheckedKeys[0]
+		pkFormat := btcutil.PKFUncompressed
+		switch keyBytes[0] {
+		case 0x02, 0x03:
+			pkFormat = btcutil.PKFCompressed
+		case 0x06, 0x07:
+			pkFormat = btcutil.PKFHybrid
+		}
+
 		if pubKey == nil {
 			var err error
-			pubKey, err = btcec.ParsePubKey(op.uncheckedKeys[i], btcec.S256())
+			pubKey, err = btcec.ParsePubKey(keyBytes, btcec.S256())
 			if err != nil {
 				panic(err)
 			}
 		}
 
-		keys[len(op.uncheckedKeys)-1-i] = pubKey
+		keys[len(op.uncheckedKeys) - 1 - i] = &PublicKeyInfo{pkFormat, pubKey}
 	}
 
 	return keys, sigs, nil
