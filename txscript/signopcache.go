@@ -7,21 +7,8 @@ import (
 	"github.com/btcsuite/btcutil"
 )
 
-type txVerifyData struct {
-	tx          *wire.MsgTx
-	txIdx       int
-	inputAmount int64
-	sigVersion  int
-	flags       ScriptFlags
-}
-
-// SignOpCache contains information about every executed CHECKSIG-like
-// operation during a scripts execution
-type SignOpCache struct {
-	ops        []*signOpCode
-	verifyData *txVerifyData
-	pcToIdx    map[int]int
-	nextIdx    int
+func removeSig(slice [][]byte, s int) [][]byte {
+	return append(slice[:s], slice[s+1:]...)
 }
 
 // PublicKeyInfo stores the necessary data to reproduce the serialized
@@ -57,6 +44,33 @@ func (sigInfo *SignatureInfo) Serialize() []byte {
 	ecSig := sigInfo.Signature.Serialize()
 	ecSig = append(ecSig, byte(int(sigInfo.HashType)))
 	return ecSig
+}
+
+type txVerifyData struct {
+	tx          *wire.MsgTx
+	txIdx       int
+	inputAmount int64
+	sigVersion  int
+	flags       ScriptFlags
+}
+
+// SignOpCache contains information about every executed CHECKSIG-like
+// operation during a scripts execution
+type SignOpCache struct {
+	ops        []*signOpCode
+	verifyData *txVerifyData
+	pcToIdx    map[int]int
+	nextIdx    int
+}
+
+// NewSignOpCache initializes a new SignOpCache
+func NewSignOpCache(data *txVerifyData) *SignOpCache {
+	return &SignOpCache{
+		verifyData: data,
+		nextIdx:    0,
+		ops:        make([]*signOpCode, 0),
+		pcToIdx:    make(map[int]int),
+	}
 }
 
 // add associates a signOpCode with a particular script offset.
@@ -98,6 +112,11 @@ func (c *SignOpCache) IsComplete(idx int) (bool, bool, error) {
 	return true, c.ops[idx].HasAllSignatures(), nil
 }
 
+
+// getSignOps returns a map of keyIdx => publicKeyInfo, and keyIdx => signatureInfo,
+// where the signatures were successfully validated in the script. All public
+// keys will be returned, so an association between signature & validating public
+// key is maintained.
 func (c *SignOpCache) getSignOps(complete bool, idx int) (map[int]*PublicKeyInfo, map[int]*SignatureInfo, error) {
 	op := c.getIdx(idx)
 	if op == nil {
@@ -149,41 +168,34 @@ func (c *SignOpCache) getSignOps(complete bool, idx int) (map[int]*PublicKeyInfo
 	return keys, sigs, nil
 }
 
-// GetSignOps returns a map of keyIdx => publicKey, and keyIdx => signature,
-// where the signatures were successfully validated in the script. All public
-// keys will be returned, so an association between signature & validating public
-// key is maintained.
-
-// GetSignOps returns a map of keyIdx => publicKey, and keyIdx => signature,
-// where the signatures were successfully validated in the script. All public
-// keys will be returned, so an association between signature & validating public
-// key is maintained.
+// GetSignOps returns the maps of public key and signature information
+// (for signature operation idx) using the completed signature data.
 func (c *SignOpCache) GetSignOps(idx int) (map[int]*PublicKeyInfo, map[int]*SignatureInfo, error) {
 	return c.getSignOps(true, idx)
 }
 
+// GetSignOps returns the maps of public key and signature information
+// (for signature operation idx) using uncheckedKeys & uncheckedSigs.
+// It will repeatedly attempt ECDSA validation to build the results.
 func (c *SignOpCache) GetIncompleteOps(idx int) (map[int]*PublicKeyInfo, map[int]*SignatureInfo, error) {
 	return c.getSignOps(false, idx)
-}
-
-// NewSignOpCache initializes a new SignOpCache
-func NewSignOpCache(data *txVerifyData) *SignOpCache {
-	return &SignOpCache{
-		verifyData: data,
-		nextIdx:    0,
-		ops:        make([]*signOpCode, 0),
-		pcToIdx:    make(map[int]int),
-	}
 }
 
 type signOpCode struct {
 	opcode        int
 	rawScript     []parsedOpcode
 	signScript    []parsedOpcode
+	hashMap       map[SigHashType][]byte
 	keys          []*btcec.PublicKey
 	uncheckedKeys [][]byte
 	uncheckedSigs [][]byte
 	keyOp         map[int]*signOp
+}
+
+type signOp struct {
+	hashType SigHashType
+	sig      *btcec.Signature
+	pubKey   *btcec.PublicKey
 }
 
 // InitCheckSig initializes the operation for an op CHECKSIG/CHECKSIGVERIFY
@@ -197,6 +209,7 @@ func (s *signOpCode) InitCheckSig(opcode int, pops []parsedOpcode) error {
 	s.rawScript = pops
 	s.keys = make([]*btcec.PublicKey, 0, 1)
 	s.keyOp = make(map[int]*signOp, 1)
+	s.hashMap = make(map[SigHashType][]byte, 1)
 
 	return nil
 }
@@ -213,6 +226,7 @@ func (s *signOpCode) InitCheckMultiSig(opcode int, pops []parsedOpcode) error {
 	s.rawScript = pops
 	s.keys = make([]*btcec.PublicKey, 0, MaxPubKeysPerMultiSig)
 	s.keyOp = make(map[int]*signOp, MaxPubKeysPerMultiSig)
+	s.hashMap = make(map[SigHashType][]byte, 6)
 
 	return nil
 }
@@ -318,8 +332,11 @@ func (s *signOpCode) IncompleteSigs(data *txVerifyData) (map[int]*SignatureInfo,
 			if data.sigVersion == 1 {
 				sigHashes := NewTxSigHashes(data.tx)
 
-				shash = calcWitnessSignatureHash(subscript, sigHashes, hashType,
+				shash, err = calcWitnessSignatureHash(subscript, sigHashes, hashType,
 					data.tx, data.txIdx, data.inputAmount)
+				if err != nil {
+					return nil, err
+				}
 			} else {
 				shash = calcSignatureHash(subscript, hashType, data.tx, data.txIdx)
 			}
@@ -338,32 +355,54 @@ func (s *signOpCode) IncompleteSigs(data *txVerifyData) (map[int]*SignatureInfo,
 	return signatures, nil
 }
 
-func removeSig(slice [][]byte, s int) [][]byte {
-	return append(slice[:s], slice[s+1:]...)
+// GetCachedSigHash returns the signature hash cached for hashType
+// if it is known, otherwise the function returns nil.
+func (s *signOpCode) GetCachedSigHash(hashType SigHashType) []byte {
+	if _, ok := s.hashMap[hashType]; ok {
+		return s.hashMap[hashType]
+	}
+	return nil
 }
 
-type signOp struct {
-	hashType SigHashType
-	sig      *btcec.Signature
-	pubKey   *btcec.PublicKey
-}
-
+// stackKey appends the key to the uncheckedKeys list. This
+// is done for each key belonging to the opcode as it is read
+// from the stack.
 func (s *signOpCode) stackKey(key []byte) {
 	s.uncheckedKeys = append(s.uncheckedKeys, key)
 }
+
+// stackSignature appends the signature to the uncheckedSigs list.
+// This is done for each 'signature' in case recovery is required.
 func (s *signOpCode) stackSignature(sig []byte) {
 	s.uncheckedSigs = append(s.uncheckedSigs, sig)
 }
+
+// hashScript is used to set the subscript passed to the signature
+// hash generation function. This is only done when the subscript
+// is ready, ie, FindAndDelete was called.
 func (s *signOpCode) hashScript(subscript []parsedOpcode) {
 	s.signScript = subscript
 }
 
-func (s *signOpCode) signature(op *signOp) {
+// sigHash maps the given hashType to it's associated sigHash.
+func (s *signOpCode) sigHash(hashType SigHashType, sigHash []byte) {
+	s.hashMap[hashType] = sigHash
+}
+
+// signature caches the sigHash for this signOp, updates the
+// list of keys and key operations.
+func (s *signOpCode) signature(hash []byte, op *signOp) {
+	if s.GetCachedSigHash(op.hashType) == nil {
+		s.sigHash(op.hashType, hash)
+	}
+
 	s.keys = append(s.keys, op.pubKey)
 	idx := len(s.keys) - 1
 	s.keyOp[idx] = op
 }
 
+// skipKey is called when a public key failed verification, allowing
+// other valid signatures to be added to the key operations.
 func (s *signOpCode) skipKey(key *btcec.PublicKey) {
 	s.keys = append(s.keys, key)
 	idx := len(s.keys) - 1

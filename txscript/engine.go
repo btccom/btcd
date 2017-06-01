@@ -536,7 +536,7 @@ func (vm *Engine) Execute() (err error) {
 // containing a trace of all signature opcodes in the script, or an error.
 func (vm *Engine) ExecuteSignOp(allowIncomplete bool) (*SignOpCache, error) {
 	var sigVersion int
-	if vm.witness {
+	if vm.isWitnessVersionActive(0) {
 		sigVersion = 1
 	} else {
 		sigVersion = 0

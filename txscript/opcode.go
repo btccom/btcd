@@ -2156,7 +2156,7 @@ func opcodeCheckSig(op *parsedOpcode, vm *Engine) error {
 		valid = signature.Verify(hash, pubKey)
 	}
 
-	signOper.signature(&signOp{
+	signOper.signature(hash, &signOp{
 		hashType: hashType,
 		sig:      signature,
 		pubKey:   pubKey,
@@ -2392,22 +2392,24 @@ func opcodeCheckMultiSig(op *parsedOpcode, vm *Engine) error {
 		}
 
 		// Generate the signature hash based on the signature hash type.
-		var hash []byte
-		if vm.isWitnessVersionActive(0) {
-			var sigHashes *TxSigHashes
-			if vm.hashCache != nil {
-				sigHashes = vm.hashCache
-			} else {
-				sigHashes = NewTxSigHashes(&vm.tx)
-			}
+		var hash []byte = signOper.GetCachedSigHash(hashType)
+		if hash == nil {
+			if vm.isWitnessVersionActive(0) {
+				var sigHashes *TxSigHashes
+				if vm.hashCache != nil {
+					sigHashes = vm.hashCache
+				} else {
+					sigHashes = NewTxSigHashes(&vm.tx)
+				}
 
-			hash, err = calcWitnessSignatureHash(script, sigHashes, hashType,
-				&vm.tx, vm.txIdx, vm.inputAmount)
-			if err != nil {
-				return err
+				hash, err = calcWitnessSignatureHash(script, sigHashes, hashType,
+					&vm.tx, vm.txIdx, vm.inputAmount)
+				if err != nil {
+					return err
+				}
+			} else {
+				hash = calcSignatureHash(script, hashType, &vm.tx, vm.txIdx)
 			}
-		} else {
-			hash = calcSignatureHash(script, hashType, &vm.tx, vm.txIdx)
 		}
 
 		var valid bool
@@ -2425,7 +2427,7 @@ func opcodeCheckMultiSig(op *parsedOpcode, vm *Engine) error {
 		}
 
 		if valid {
-			signOper.signature(&signOp{
+			signOper.signature(hash, &signOp{
 				hashType: hashType,
 				sig:      parsedSig,
 				pubKey:   parsedPubKey,
