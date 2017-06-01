@@ -135,7 +135,7 @@ func (c *SignOpCache) getSignOps(complete bool, idx int) (map[int]*PublicKeyInfo
 
 	keys := make(map[int]*PublicKeyInfo, len(op.uncheckedKeys))
 	for i := 0; i < len(op.uncheckedKeys); i++ {
-		keyBytes := op.uncheckedKeys[0]
+		keyBytes := op.uncheckedKeys[i]
 
 		var pubKey *btcec.PublicKey
 
