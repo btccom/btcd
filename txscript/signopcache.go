@@ -112,7 +112,6 @@ func (c *SignOpCache) IsComplete(idx int) (bool, bool, error) {
 	return true, c.ops[idx].HasAllSignatures(), nil
 }
 
-
 // getSignOps returns a map of keyIdx => publicKeyInfo, and keyIdx => signatureInfo,
 // where the signatures were successfully validated in the script. All public
 // keys will be returned, so an association between signature & validating public
