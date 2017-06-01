@@ -145,6 +145,48 @@ func makeP2shFixture(params *chaincfg.Params, txHex string, txIdx int, txValue i
 
 	return fixture
 }
+func makeTxEmptyFixture(params *chaincfg.Params) *SignOpCacheFixture {
+	txHex := "0100000001951aefe7968498e74fc5fc52d81009d95a01eb2eaae67cc9fcef61b68ebbc0b80000000000ffffffff01010000000000000017a914221154d32a82ae83f9e75431feae77a37af771a68700000000"
+	txIdx := 0
+	var txValue int64
+	rs := "5241043e49ec68abcf030dfc8ec7dfcb388b17fed99134d5f910c87e947f0cc86a1cf9c29b27ddbd0443b6d40fc5cb35eb13fcb41bf0e4f63d74bea2576e8db07dd1864104e38fa9a9dfa216d45d90cfca8ca2566f2d9aa9c1846e6dd6ab0756c07262abe1c7f8a60ff2357bc2ea9fb597bfbcf4d3e4fe605a294171dc32421578125136e0410473682ed776e9d0afee6cd52f4a4b20ad458956ef5567d5747853b689bb44a6a90736b515aa63bc5703c7d1a5662b7e2421b9436597fd8bf8da216f2b1cba01cc53ae"
+
+	k1, _ := hex.DecodeString("043e49ec68abcf030dfc8ec7dfcb388b17fed99134d5f910c87e947f0cc86a1cf9c29b27ddbd0443b6d40fc5cb35eb13fcb41bf0e4f63d74bea2576e8db07dd186")
+	k2, _ := hex.DecodeString("04e38fa9a9dfa216d45d90cfca8ca2566f2d9aa9c1846e6dd6ab0756c07262abe1c7f8a60ff2357bc2ea9fb597bfbcf4d3e4fe605a294171dc32421578125136e0")
+	k3, _ := hex.DecodeString("0473682ed776e9d0afee6cd52f4a4b20ad458956ef5567d5747853b689bb44a6a90736b515aa63bc5703c7d1a5662b7e2421b9436597fd8bf8da216f2b1cba01cc")
+	keys1 := make(map[int][]byte, 3)
+	keys1[0] = k1
+	keys1[1] = k2
+	keys1[2] = k3
+
+	// sigsSet is empty because without the redeemScript
+	// the multisig operation isn't executed
+	sigsSet := []map[int][]byte{}
+	keysSet := []map[int][]byte{keys1}
+
+	return makeP2shFixture(params, txHex, txIdx, txValue, rs, sigsSet, keysSet)
+}
+func makeTx000Fixture(params *chaincfg.Params) *SignOpCacheFixture {
+	txHex := "0100000001951aefe7968498e74fc5fc52d81009d95a01eb2eaae67cc9fcef61b68ebbc0b800000000cc004cc95241043e49ec68abcf030dfc8ec7dfcb388b17fed99134d5f910c87e947f0cc86a1cf9c29b27ddbd0443b6d40fc5cb35eb13fcb41bf0e4f63d74bea2576e8db07dd1864104e38fa9a9dfa216d45d90cfca8ca2566f2d9aa9c1846e6dd6ab0756c07262abe1c7f8a60ff2357bc2ea9fb597bfbcf4d3e4fe605a294171dc32421578125136e0410473682ed776e9d0afee6cd52f4a4b20ad458956ef5567d5747853b689bb44a6a90736b515aa63bc5703c7d1a5662b7e2421b9436597fd8bf8da216f2b1cba01cc53aeffffffff01010000000000000017a914221154d32a82ae83f9e75431feae77a37af771a68700000000"
+	txIdx := 0
+	var txValue int64
+	rs := "5241043e49ec68abcf030dfc8ec7dfcb388b17fed99134d5f910c87e947f0cc86a1cf9c29b27ddbd0443b6d40fc5cb35eb13fcb41bf0e4f63d74bea2576e8db07dd1864104e38fa9a9dfa216d45d90cfca8ca2566f2d9aa9c1846e6dd6ab0756c07262abe1c7f8a60ff2357bc2ea9fb597bfbcf4d3e4fe605a294171dc32421578125136e0410473682ed776e9d0afee6cd52f4a4b20ad458956ef5567d5747853b689bb44a6a90736b515aa63bc5703c7d1a5662b7e2421b9436597fd8bf8da216f2b1cba01cc53ae"
+
+	k1, _ := hex.DecodeString("043e49ec68abcf030dfc8ec7dfcb388b17fed99134d5f910c87e947f0cc86a1cf9c29b27ddbd0443b6d40fc5cb35eb13fcb41bf0e4f63d74bea2576e8db07dd186")
+	k2, _ := hex.DecodeString("04e38fa9a9dfa216d45d90cfca8ca2566f2d9aa9c1846e6dd6ab0756c07262abe1c7f8a60ff2357bc2ea9fb597bfbcf4d3e4fe605a294171dc32421578125136e0")
+	k3, _ := hex.DecodeString("0473682ed776e9d0afee6cd52f4a4b20ad458956ef5567d5747853b689bb44a6a90736b515aa63bc5703c7d1a5662b7e2421b9436597fd8bf8da216f2b1cba01cc")
+	keys1 := make(map[int][]byte, 3)
+	keys1[0] = k1
+	keys1[1] = k2
+	keys1[2] = k3
+
+	sigs := make(map[int][]byte, 0)
+
+	sigsSet := []map[int][]byte{sigs}
+	keysSet := []map[int][]byte{keys1}
+
+	return makeP2shFixture(params, txHex, txIdx, txValue, rs, sigsSet, keysSet)
+}
 
 func makeTx001Fixture(params *chaincfg.Params) *SignOpCacheFixture {
 	txHex := "0100000001951aefe7968498e74fc5fc52d81009d95a01eb2eaae67cc9fcef61b68ebbc0b800000000fd1401004730440220516b0f747d126b12cdfb891239b3dfc547a719175edfe0309503e76d6f1ea27602205ff41618e5019dcd748ae51b7e4aa43b3d0acb0d3ecff4c05aa43ad87a1e2df9014cc95241043e49ec68abcf030dfc8ec7dfcb388b17fed99134d5f910c87e947f0cc86a1cf9c29b27ddbd0443b6d40fc5cb35eb13fcb41bf0e4f63d74bea2576e8db07dd1864104e38fa9a9dfa216d45d90cfca8ca2566f2d9aa9c1846e6dd6ab0756c07262abe1c7f8a60ff2357bc2ea9fb597bfbcf4d3e4fe605a294171dc32421578125136e0410473682ed776e9d0afee6cd52f4a4b20ad458956ef5567d5747853b689bb44a6a90736b515aa63bc5703c7d1a5662b7e2421b9436597fd8bf8da216f2b1cba01cc53aeffffffff01010000000000000017a914221154d32a82ae83f9e75431feae77a37af771a68700000000"
@@ -404,6 +446,8 @@ func TestSignOpCache(t *testing.T) {
 	params := &chaincfg.MainNetParams
 	fixtures := make([]*SignOpCacheFixture, 0)
 
+	fixtures = append(fixtures, makeTxEmptyFixture(params))
+	fixtures = append(fixtures, makeTx000Fixture(params))
 	fixtures = append(fixtures, makeTx011Fixture(params))
 	fixtures = append(fixtures, makeTx110Fixture(params))
 	fixtures = append(fixtures, makeTx101Fixture(params))
