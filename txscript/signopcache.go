@@ -183,12 +183,6 @@ func (c *SignOpCache) getSignOps(complete bool, idx int) (map[int]*PublicKeyInfo
 	return keys, sigs, nil
 }
 
-// GetSignOps returns the maps of public key and signature information
-// (for signature operation idx) using the completed signature data.
-func (c *SignOpCache) GetSignOps(idx int) (map[int]*PublicKeyInfo, map[int]*SignatureInfo, error) {
-	return c.getSignOps(true, idx)
-}
-
 // GetObservedHashTypes returns the hashtypes observed for operation `idx`
 // or an error if the operation does not exist
 func (c *SignOpCache) GetObservedHashTypes(idx int) ([]SigHashType, error) {
@@ -201,6 +195,31 @@ func (c *SignOpCache) GetObservedHashTypes(idx int) ([]SigHashType, error) {
 	}
 
 	return op.GetObservedHashTypes(), nil
+}
+
+// GetSigHash returns the sighash for operation idx, if the provided hashType
+// was actually used during the operation. Otherwise it will return an error.
+func (c *SignOpCache) GetSigHash(idx int, hashType SigHashType) ([]byte, error) {
+	c.RLock()
+	defer c.RUnlock()
+
+	op, err := c.getIdx(idx)
+	if err != nil {
+		return nil, err
+	}
+
+	hash := op.GetCachedSigHash(hashType)
+	if hash == nil {
+		return nil, fmt.Errorf("Operation %d did not have the %d sigHash cached", idx, hashType)
+	}
+
+	return hash, nil
+}
+
+// GetSignOps returns the maps of public key and signature information
+// (for signature operation idx) using the completed signature data.
+func (c *SignOpCache) GetSignOps(idx int) (map[int]*PublicKeyInfo, map[int]*SignatureInfo, error) {
+	return c.getSignOps(true, idx)
 }
 
 // GetIncompleteOps returns the maps of public key and signature information
