@@ -89,15 +89,15 @@ func (c *SignOpCache) add(scriptOff int, state *signOpCode) {
 
 // getIdx returns the checkSigState for the idx'th signature
 // operation that was pushed into the cache.
-func (c *SignOpCache) getIdx(idx int) *signOpCode {
+func (c *SignOpCache) getIdx(idx int) (*signOpCode, error) {
 	c.RLock()
 	defer c.RUnlock()
 
 	if idx < 0 || idx > len(c.ops) {
-		return nil
+		return nil, fmt.Errorf("no signature operation at idx %d, max is %d", idx, len(c.ops))
 	}
 
-	return c.ops[idx]
+	return c.ops[idx], nil
 }
 
 // IsComplete returns whether the path up to idx, and idx itself
@@ -133,18 +133,18 @@ func (c *SignOpCache) getSignOps(complete bool, idx int) (map[int]*PublicKeyInfo
 	c.RLock()
 	defer c.RUnlock()
 
-	op := c.getIdx(idx)
-	if op == nil {
-		return nil, nil, fmt.Errorf("no signature operation at index %d", idx)
+	op, err := c.getIdx(idx)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	var sigs map[int]*SignatureInfo
-	var err error
 	if complete {
 		sigs, err = op.Sigs()
 	} else {
 		sigs, err = op.IncompleteSigs(c.verifyData)
 	}
+
 	if err != nil {
 		return nil, nil, err
 	}
@@ -189,11 +189,34 @@ func (c *SignOpCache) GetSignOps(idx int) (map[int]*PublicKeyInfo, map[int]*Sign
 	return c.getSignOps(true, idx)
 }
 
+// GetObservedHashTypes returns the hashtypes observed for operation `idx`
+// or an error if the operation does not exist
+func (c *SignOpCache) GetObservedHashTypes(idx int) ([]SigHashType, error) {
+	c.RLock()
+	defer c.RUnlock()
+
+	op, err := c.getIdx(idx)
+	if err != nil {
+		return nil, err
+	}
+
+	return op.GetObservedHashTypes(), nil
+}
+
 // GetIncompleteOps returns the maps of public key and signature information
 // (for signature operation idx) using uncheckedKeys & uncheckedSigs.
 // It will repeatedly attempt ECDSA validation to build the results.
 func (c *SignOpCache) GetIncompleteOps(idx int) (map[int]*PublicKeyInfo, map[int]*SignatureInfo, error) {
 	return c.getSignOps(false, idx)
+}
+
+// GetNumOps returns the number of signature operations for which
+// it has data.
+func (c *SignOpCache) GetNumOps() int {
+	c.RLock()
+	defer c.RUnlock()
+
+	return len(c.ops)
 }
 
 type signOpCode struct {
