@@ -183,6 +183,38 @@ func (c *SignOpCache) getSignOps(complete bool, idx int) (map[int]*PublicKeyInfo
 	return keys, sigs, nil
 }
 
+// GetOpcode returns the opcode that triggered the
+// sign operation at position `idx`
+func (c *SignOpCache) GetOpcode(idx int) (int, error) {
+	c.RLock()
+	defer c.RUnlock()
+
+	op, err := c.getIdx(idx)
+	if err != nil {
+		return nil, err
+	}
+
+	return op.opcode, nil
+}
+
+// GetScriptCode will return the scriptCode for the signature operation
+// at position idx.
+func (c *SignOpCache) GetScriptCode(idx int) ([]byte, error) {
+	c.RLock()
+	defer c.RUnlock()
+
+	op, err := c.getIdx(idx)
+	if err != nil {
+		return nil, err
+	}
+
+	if op.HasAllSignatures() {
+		return op.signScript, nil
+	}
+
+	return op.getIncompleteSignScript(op.uncheckedSigs, c.verifyData), nil
+}
+
 // GetObservedHashTypes returns the hashtypes observed for operation `idx`
 // or an error if the operation does not exist
 func (c *SignOpCache) GetObservedHashTypes(idx int) ([]SigHashType, error) {
@@ -342,6 +374,8 @@ func (s *signOpCode) Sigs() (map[int]*SignatureInfo, error) {
 	return signatures, nil
 }
 
+// getIncompleteSignScript takes a list of signatures, and returns
+// a copy of the raw subscript after any occurring values from it.
 func (s *signOpCode) getIncompleteSignScript(sigs [][]byte, data *txVerifyData) ([]parsedOpcode) {
 	subscript := s.rawScript
 
