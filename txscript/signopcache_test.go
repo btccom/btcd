@@ -495,9 +495,9 @@ func runSignOpTestFixture(t *testing.T, fixture *SignOpCacheFixture) {
 	}
 
 	for i := 0; i < nExpectedSignOps; i++ {
-		op := ops.getIdx(i)
-		if op == nil {
-			t.Errorf("Unable to find idx %d after counting results", i)
+		op, err := ops.getIdx(i)
+		if err != nil {
+			t.Error(err)
 			return
 		}
 
