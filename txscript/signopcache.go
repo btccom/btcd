@@ -300,8 +300,8 @@ func (s *signOpCode) IncompleteSigs(data *txVerifyData) (map[int]*SignatureInfo,
 			continue
 		}
 
-		for s := 0; s < len(sigs); s++ {
-			rawSig := sigs[s]
+		for i := 0; i < len(sigs); i++ {
+			rawSig := sigs[i]
 			if len(rawSig) == 0 {
 				continue
 			}
@@ -325,23 +325,23 @@ func (s *signOpCode) IncompleteSigs(data *txVerifyData) (map[int]*SignatureInfo,
 				continue
 			}
 
-			var shash []byte // = cs.GetCachedSigHash(hashType)
-			//if shash == nil {
-			//Generate the signature hash based on the signature hash type.
-			if data.sigVersion == 1 {
-				sigHashes := NewTxSigHashes(data.tx)
+			var shash = s.GetCachedSigHash(hashType)
+			if shash == nil {
+				//Generate the signature hash based on the signature hash type.
+				if data.sigVersion == 1 {
+					sigHashes := NewTxSigHashes(data.tx)
 
-				shash = calcWitnessSignatureHash(subscript, sigHashes, hashType,
-					data.tx, data.txIdx, data.inputAmount)
-			} else {
-				shash = calcSignatureHash(subscript, hashType, data.tx, data.txIdx)
+					shash = calcWitnessSignatureHash(subscript, sigHashes, hashType,
+						data.tx, data.txIdx, data.inputAmount)
+				} else {
+					shash = calcSignatureHash(subscript, hashType, data.tx, data.txIdx)
+				}
 			}
-			//}
 
 			valid := parsedSig.Verify(shash, parsedPubKey)
 
 			if valid {
-				sigs = removeSig(sigs, s)
+				sigs = removeSig(sigs, i)
 				signatures[numKeys-1-k] = &SignatureInfo{hashType, parsedSig}
 				continue
 			}
@@ -358,6 +358,20 @@ func (s *signOpCode) GetCachedSigHash(hashType SigHashType) []byte {
 		return s.hashMap[hashType]
 	}
 	return nil
+}
+
+// GetObservedHashTypes returns the hashTypes requested
+// during the execution of the opcode. For a CHECKSIG opcode
+// this will only have one value, however a MULTISIG opcodes
+// can have several
+func (s *signOpCode) GetObservedHashTypes() []SigHashType {
+	hashTypes := make([]SigHashType, len(s.hashMap))
+	i := 0
+	for hashType := range s.hashMap {
+		hashTypes[i] = hashType
+		i++
+	}
+	return hashTypes
 }
 
 // stackKey appends the key to the uncheckedKeys list. This
