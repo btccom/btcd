@@ -342,6 +342,22 @@ func (s *signOpCode) Sigs() (map[int]*SignatureInfo, error) {
 	return signatures, nil
 }
 
+func (s *signOpCode) getIncompleteSignScript(sigs [][]byte, data *txVerifyData) ([]parsedOpcode) {
+	subscript := s.rawScript
+
+	if data.sigVersion == 0 {
+		// Remove any of the signatures since there is no way for a
+		// signature to sign itself.
+		for _, sig := range sigs {
+			if len(sig) > 0 {
+				subscript = removeOpcodeByData(subscript, sig)
+			}
+		}
+	}
+
+	return subscript
+}
+
 // IncompleteSigs takes any stackSigs/stackKeys observed during execution,
 // and attempts to build of pubkeyIdx => signature. It should only be used
 // called for the _first_ incomplete signOpCode, since we can't assert much
@@ -358,17 +374,7 @@ func (s *signOpCode) IncompleteSigs(data *txVerifyData) (map[int]*SignatureInfo,
 		if len(s.signScript) > 0 {
 			subscript = s.signScript
 		} else if len(s.rawScript) > 0 {
-			subscript = s.rawScript
-
-			if data.sigVersion == 0 {
-				// Remove any of the signatures since there is no way for a
-				// signature to sign itself.
-				for _, sig := range sigs {
-					if len(sig) > 0 {
-						subscript = removeOpcodeByData(subscript, sig)
-					}
-				}
-			}
+			subscript = s.getIncompleteSignScript(s.uncheckedSigs, data)
 		}
 
 		// Parse the pubkey.
