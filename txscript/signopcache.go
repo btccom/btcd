@@ -191,7 +191,7 @@ func (c *SignOpCache) GetOpcode(idx int) (int, error) {
 
 	op, err := c.getIdx(idx)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
 	return op.opcode, nil
@@ -208,11 +208,14 @@ func (c *SignOpCache) GetScriptCode(idx int) ([]byte, error) {
 		return nil, err
 	}
 
+	var pops []parsedOpcode
 	if op.HasAllSignatures() {
-		return op.signScript, nil
+		pops = op.signScript
+	} else {
+		pops = op.getIncompleteSignScript(op.uncheckedSigs, c.verifyData)
 	}
 
-	return op.getIncompleteSignScript(op.uncheckedSigs, c.verifyData), nil
+	return unparseScript(pops)
 }
 
 // GetObservedHashTypes returns the hashtypes observed for operation `idx`
