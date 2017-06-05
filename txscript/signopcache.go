@@ -5,6 +5,7 @@ import (
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
+	"sync"
 )
 
 func removeSig(slice [][]byte, s int) [][]byte {
@@ -57,6 +58,7 @@ type txVerifyData struct {
 // SignOpCache contains information about every executed CHECKSIG-like
 // operation during a scripts execution
 type SignOpCache struct {
+	sync.RWMutex
 	ops        []*signOpCode
 	verifyData *txVerifyData
 	pcToIdx    map[int]int
@@ -75,6 +77,9 @@ func NewSignOpCache(data *txVerifyData) *SignOpCache {
 
 // add associates a signOpCode with a particular script offset.
 func (c *SignOpCache) add(scriptOff int, state *signOpCode) {
+	c.Lock()
+	defer c.Unlock()
+
 	c.ops = append(c.ops, state)
 	c.pcToIdx[scriptOff] = c.nextIdx
 	c.nextIdx++
@@ -83,6 +88,9 @@ func (c *SignOpCache) add(scriptOff int, state *signOpCode) {
 // getIdx returns the checkSigState for the idx'th signature
 // operation that was pushed into the cache.
 func (c *SignOpCache) getIdx(idx int) *signOpCode {
+	c.RLock()
+	defer c.RUnlock()
+
 	if idx < 0 || idx > len(c.ops) {
 		return nil
 	}
@@ -97,6 +105,9 @@ func (c *SignOpCache) getIdx(idx int) *signOpCode {
 // For the index to be complete, the path and the final op must
 // be complete.
 func (c *SignOpCache) IsComplete(idx int) (bool, bool, error) {
+	c.RLock()
+	defer c.RUnlock()
+
 	if idx < 0 || idx > len(c.ops) {
 		return false, false, fmt.Errorf("no signature operation at index %d", idx)
 	}
@@ -117,6 +128,9 @@ func (c *SignOpCache) IsComplete(idx int) (bool, bool, error) {
 // keys will be returned, so an association between signature & validating public
 // key is maintained.
 func (c *SignOpCache) getSignOps(complete bool, idx int) (map[int]*PublicKeyInfo, map[int]*SignatureInfo, error) {
+	c.RLock()
+	defer c.RUnlock()
+
 	op := c.getIdx(idx)
 	if op == nil {
 		return nil, nil, fmt.Errorf("no signature operation at index %d", idx)
@@ -181,6 +195,7 @@ func (c *SignOpCache) GetIncompleteOps(idx int) (map[int]*PublicKeyInfo, map[int
 }
 
 type signOpCode struct {
+	sync.RWMutex
 	opcode        int
 	rawScript     []parsedOpcode
 	signScript    []parsedOpcode
@@ -200,6 +215,9 @@ type signOp struct {
 // InitCheckSig initializes the operation for an op CHECKSIG/CHECKSIGVERIFY
 // operation
 func (s *signOpCode) InitCheckSig(opcode int, pops []parsedOpcode) error {
+	s.Lock()
+	defer s.Unlock()
+
 	if opcode != OP_CHECKSIG && opcode != OP_CHECKSIGVERIFY {
 		return fmt.Errorf("Invalid opcode for signop: %d", opcode)
 	}
@@ -217,6 +235,9 @@ func (s *signOpCode) InitCheckSig(opcode int, pops []parsedOpcode) error {
 // CHECKMULTISIGVERIFY operation. It is initialized with the maximum
 // number of keys/keyOps
 func (s *signOpCode) InitCheckMultiSig(opcode int, pops []parsedOpcode) error {
+	s.Lock()
+	defer s.Unlock()
+
 	if opcode != OP_CHECKMULTISIG && opcode != OP_CHECKMULTISIGVERIFY {
 		return fmt.Errorf("Invalid opcode for signop: %d", opcode)
 	}
@@ -233,6 +254,9 @@ func (s *signOpCode) InitCheckMultiSig(opcode int, pops []parsedOpcode) error {
 // SigCount returns the number of signing operations observed
 // during the opcodes execution
 func (s *signOpCode) SigCount() int {
+	s.RLock()
+	defer s.RUnlock()
+
 	found := 0
 	for _, op := range s.keyOp {
 		if op != nil {
@@ -245,12 +269,18 @@ func (s *signOpCode) SigCount() int {
 // HasAllSignatures checks that the SigCount matches the number
 // of uncheckedSigs.
 func (s *signOpCode) HasAllSignatures() bool {
+	s.RLock()
+	defer s.RUnlock()
+
 	return s.SigCount() == len(s.uncheckedSigs)
 }
 
 // Sigs returns a map of pubKeyIdx => signature. It requires
 // that the script successfully executed.
 func (s *signOpCode) Sigs() (map[int]*SignatureInfo, error) {
+	s.RLock()
+	defer s.RUnlock()
+
 	if !s.HasAllSignatures() {
 		return nil, fmt.Errorf("cannot call Sigs when state is still incomplete")
 	}
@@ -273,6 +303,9 @@ func (s *signOpCode) Sigs() (map[int]*SignatureInfo, error) {
 // called for the _first_ incomplete signOpCode, since we can't assert much
 // about the stack beyond this point.
 func (s *signOpCode) IncompleteSigs(data *txVerifyData) (map[int]*SignatureInfo, error) {
+	s.RLock()
+	defer s.RUnlock()
+
 	sigs := s.uncheckedSigs
 	signatures := make(map[int]*SignatureInfo, len(s.uncheckedKeys))
 	numKeys := len(s.uncheckedKeys)
@@ -357,6 +390,8 @@ func (s *signOpCode) IncompleteSigs(data *txVerifyData) (map[int]*SignatureInfo,
 // GetCachedSigHash returns the signature hash cached for hashType
 // if it is known, otherwise the function returns nil.
 func (s *signOpCode) GetCachedSigHash(hashType SigHashType) []byte {
+	s.RLock()
+	defer s.RUnlock()
 	if _, ok := s.hashMap[hashType]; ok {
 		return s.hashMap[hashType]
 	}
@@ -368,6 +403,8 @@ func (s *signOpCode) GetCachedSigHash(hashType SigHashType) []byte {
 // this will only have one value, however a MULTISIG opcodes
 // can have several
 func (s *signOpCode) GetObservedHashTypes() []SigHashType {
+	s.RLock()
+	defer s.RUnlock()
 	hashTypes := make([]SigHashType, len(s.hashMap))
 	i := 0
 	for hashType := range s.hashMap {
@@ -381,12 +418,16 @@ func (s *signOpCode) GetObservedHashTypes() []SigHashType {
 // is done for each key belonging to the opcode as it is read
 // from the stack.
 func (s *signOpCode) stackKey(key []byte) {
+	s.Lock()
+	defer s.Unlock()
 	s.uncheckedKeys = append(s.uncheckedKeys, key)
 }
 
 // stackSignature appends the signature to the uncheckedSigs list.
 // This is done for each 'signature' in case recovery is required.
 func (s *signOpCode) stackSignature(sig []byte) {
+	s.Lock()
+	defer s.Unlock()
 	s.uncheckedSigs = append(s.uncheckedSigs, sig)
 }
 
@@ -394,19 +435,19 @@ func (s *signOpCode) stackSignature(sig []byte) {
 // hash generation function. This is only done when the subscript
 // is ready, ie, FindAndDelete was called.
 func (s *signOpCode) hashScript(subscript []parsedOpcode) {
+	s.Lock()
+	defer s.Unlock()
 	s.signScript = subscript
-}
-
-// sigHash maps the given hashType to it's associated sigHash.
-func (s *signOpCode) sigHash(hashType SigHashType, sigHash []byte) {
-	s.hashMap[hashType] = sigHash
 }
 
 // signature caches the sigHash for this signOp, updates the
 // list of keys and key operations.
 func (s *signOpCode) signature(hash []byte, op *signOp) {
-	if s.GetCachedSigHash(op.hashType) == nil {
-		s.sigHash(op.hashType, hash)
+	s.Lock()
+	defer s.Unlock()
+
+	if _, ok := s.hashMap[op.hashType]; !ok {
+		s.hashMap[op.hashType] = hash
 	}
 
 	s.keys = append(s.keys, op.pubKey)
