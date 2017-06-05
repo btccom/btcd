@@ -34,6 +34,8 @@ func (keyInfo *PublicKeyInfo) Serialize() ([]byte, error) {
 	}
 }
 
+// SignatureInfo captures state about the transaction signature
+// ie, it's hashType and signature.
 type SignatureInfo struct {
 	HashType  SigHashType
 	Signature *btcec.Signature
@@ -187,7 +189,7 @@ func (c *SignOpCache) GetSignOps(idx int) (map[int]*PublicKeyInfo, map[int]*Sign
 	return c.getSignOps(true, idx)
 }
 
-// GetSignOps returns the maps of public key and signature information
+// GetIncompleteOps returns the maps of public key and signature information
 // (for signature operation idx) using uncheckedKeys & uncheckedSigs.
 // It will repeatedly attempt ECDSA validation to build the results.
 func (c *SignOpCache) GetIncompleteOps(idx int) (map[int]*PublicKeyInfo, map[int]*SignatureInfo, error) {
