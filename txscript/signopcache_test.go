@@ -180,7 +180,7 @@ func makeTx000Fixture(params *chaincfg.Params) *SignOpCacheFixture {
 	keys1[1] = k2
 	keys1[2] = k3
 
-	sigs := make(map[int][]byte, 0)
+	sigs := make(map[int][]byte)
 
 	sigsSet := []map[int][]byte{sigs}
 	keysSet := []map[int][]byte{keys1}
