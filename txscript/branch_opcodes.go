@@ -1,6 +1,8 @@
 package txscript
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // GetBranchAst produces a list of booleans describing
 // the path of script execution over a sequence of logical
@@ -205,7 +207,6 @@ func EvalScriptBranch(vfInput []bool, script []byte) ([]byte, error) {
 					fValue = vfInput[len(vfInput)-1]
 					if opcode == OP_NOTIF {
 						fValue = !fValue
-					} else {
 					}
 					sz := int32(len(vfInput))
 					vfInput = vfInput[:sz-1]
@@ -298,4 +299,29 @@ func (bt *branchTrace) opcode(pop parsedOpcode) {
 func (bt *branchTrace) end() []byte {
 	bt.nextSegment()
 	return bt.scriptCode
+}
+
+// StripLogicalOpcodes removes all logical opcodes from a script.
+// It should only be run on a branch trace, since it already has
+// stripped the opcodes outside the branch we are considering exclusively.
+func StripLogicalOpcodes(script []byte) ([]byte,error) {
+	pops, err := parseScript(script);
+	if err != nil {
+		return nil, err
+	}
+
+	max := len(pops)
+	result := make([]parsedOpcode, 0, max);
+	for i := 0; i < max; i++ {
+		if !pops[i].isConditional() {
+			result = append(result, pops[i])
+		}
+	}
+
+	stripped, err := unparseScript(result)
+	if err != nil {
+		return nil, err
+	}
+
+	return stripped, nil
 }
