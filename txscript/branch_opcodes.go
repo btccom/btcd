@@ -150,7 +150,7 @@ func reverseBools(bools []bool) []bool {
 func isExecuting(condStack []bool) bool {
 	ret := 0
 	for i := 0; i < len(condStack); i++ {
-		if condStack[i] == false {
+		if !condStack[i] {
 			ret++
 		}
 	}
@@ -304,14 +304,14 @@ func (bt *branchTrace) end() []byte {
 // StripLogicalOpcodes removes all logical opcodes from a script.
 // It should only be run on a branch trace, since it already has
 // stripped the opcodes outside the branch we are considering exclusively.
-func StripLogicalOpcodes(script []byte) ([]byte,error) {
-	pops, err := parseScript(script);
+func StripLogicalOpcodes(script []byte) ([]byte, error) {
+	pops, err := parseScript(script)
 	if err != nil {
 		return nil, err
 	}
 
 	max := len(pops)
-	result := make([]parsedOpcode, 0, max);
+	result := make([]parsedOpcode, 0, max)
 	for i := 0; i < max; i++ {
 		if !pops[i].isConditional() {
 			result = append(result, pops[i])
