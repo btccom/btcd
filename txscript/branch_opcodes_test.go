@@ -84,6 +84,16 @@ func mkHashlockFixture() (*scriptBranchFixture, error) {
 	// OP_ENDIF
 	// OP_CHECKSIG
 
+	// StripLogicalOpcodes - expected output
+
+	// OP_SHA256 8b783f47c7626ddcb571c7f2c2c948f30d0ee5bc7b8de0b870d0210df9ce9f26 OP_EQUAL   (true)
+	// 0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798
+	// OP_CHECKSIG
+
+	// OP_SHA256 8b783f47c7626ddcb571c7f2c2c948f30d0ee5bc7b8de0b870d0210df9ce9f26 OP_EQUAL   (false)
+	// 1499597514 OP_CHECKLOCKTIMEVERIFY OP_DROP
+	// 02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5
+	// OP_CHECKSIG
 
 	scriptStr := "a8208b783f47c7626ddcb571c7f2c2c948f30d0ee5bc7b8de0b870d0210df9ce9f268763210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f817986704ca0a6259b1752102c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee568ac"
 	redeemPaths := [][]bool{
@@ -98,16 +108,7 @@ func mkHashlockFixture() (*scriptBranchFixture, error) {
 		"a8208b783f47c7626ddcb571c7f2c2c948f30d0ee5bc7b8de0b870d0210df9ce9f2687210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798ac",
 		"a8208b783f47c7626ddcb571c7f2c2c948f30d0ee5bc7b8de0b870d0210df9ce9f268704ca0a6259b1752102c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5ac",
 	}
-	// StripLogicalOpcodes - expected output
 
-	// OP_SHA256 8b783f47c7626ddcb571c7f2c2c948f30d0ee5bc7b8de0b870d0210df9ce9f26 OP_EQUAL   (true)
-	// 0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798
-	// OP_CHECKSIG
-
-	// OP_SHA256 8b783f47c7626ddcb571c7f2c2c948f30d0ee5bc7b8de0b870d0210df9ce9f26 OP_EQUAL   (false)
-	// 1499597514 OP_CHECKLOCKTIMEVERIFY OP_DROP
-	// 02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5
-	// OP_CHECKSIG
 	return mkFixture(scriptStr, redeemPaths, branchStr, strippedStr)
 }
 func mkNestedHashlockFixture() (*scriptBranchFixture, error) {
