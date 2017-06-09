@@ -50,46 +50,7 @@ func mkFixture(scriptStr string, redeemPaths [][]bool, branchStr []string, strip
 	}, nil
 }
 
-func getMultisigFixture() (*scriptBranchFixture, error) {
-	// This fixture has 0 degrees of freedom as far as logical
-	// opcodes are concerned, so the only possible pathway
-	// is the entire script
-
-	scriptStr := "5221028a3ed3051bc723fc7d6168c2d30ec4e409a2e3e390a17828348b4245f15539272103717ffcf3846543f3dc23f61e8f8267cf67b7d89f204cf9e536642954739ecc6b2103be2f90feaf8060c97542acbe6769f3c6703633515afa37976b37d51314e1ea2f53ae"
-	redeemPaths := [][]bool{{}}
-	branchStr := []string{scriptStr}
-	strippedStr := []string{scriptStr}
-
-	return mkFixture(scriptStr, redeemPaths, branchStr, strippedStr)
-}
-
-func getHashLockConditionalScript() (*scriptBranchFixture, error) {
-	// Derived from https://github.com/bitcoin/bips/blob/master/bip-0114.mediawiki#hashed-time-lock-contract
-	// 1) Alice signs
-	// 2) Bob lacks the revocation value, so uses CLTV before signing
-	// 3) Bob has the revocation value, so can sign without timeout.
-
-	scriptStr := "a976149ec83aca9c5c4b41ff2bbed4b70615502fe28e6c876303805101b26d2103846c3da5ae467f9c6e6ea9195da13c95016826ab173086b04e30f6cc96b8481d671466a87e9821c983c50bdc8b5be90e7feb35aa46af87640122b17568210374586816d201ee6b5a0df3dc2216375cff348a65e447d1ec83dd6aad98e1694768ac"
-	redeemPaths := [][]bool{
-		{true},
-		{false, true},
-		{false, false},
-	}
-	branchStr := []string{
-		"a976149ec83aca9c5c4b41ff2bbed4b70615502fe28e6c876303805101b26d2103846c3da5ae467f9c6e6ea9195da13c95016826ab173086b04e30f6cc96b8481d67646868ac",
-		"a976149ec83aca9c5c4b41ff2bbed4b70615502fe28e6c8763671466a87e9821c983c50bdc8b5be90e7feb35aa46af876468210374586816d201ee6b5a0df3dc2216375cff348a65e447d1ec83dd6aad98e1694768ac",
-		"a976149ec83aca9c5c4b41ff2bbed4b70615502fe28e6c8763671466a87e9821c983c50bdc8b5be90e7feb35aa46af87640122b17568210374586816d201ee6b5a0df3dc2216375cff348a65e447d1ec83dd6aad98e1694768ac",
-	}
-	strippedStr := []string{
-		"a976149ec83aca9c5c4b41ff2bbed4b70615502fe28e6c8703805101b26d2103846c3da5ae467f9c6e6ea9195da13c95016826ab173086b04e30f6cc96b8481dac",
-		"a976149ec83aca9c5c4b41ff2bbed4b70615502fe28e6c871466a87e9821c983c50bdc8b5be90e7feb35aa46af87210374586816d201ee6b5a0df3dc2216375cff348a65e447d1ec83dd6aad98e16947ac",
-		"a976149ec83aca9c5c4b41ff2bbed4b70615502fe28e6c871466a87e9821c983c50bdc8b5be90e7feb35aa46af870122b175210374586816d201ee6b5a0df3dc2216375cff348a65e447d1ec83dd6aad98e16947ac",
-	}
-
-	return mkFixture(scriptStr, redeemPaths, branchStr, strippedStr)
-}
-
-func getHashlock() (*scriptBranchFixture, error) {
+func mkHashlockFixture() (*scriptBranchFixture, error) {
 	// https://gist.github.com/stevenroose/a305b89fe8767d769ca5d67ee52a8b93
 
 	// Full Script
@@ -123,16 +84,7 @@ func getHashlock() (*scriptBranchFixture, error) {
 	// OP_ENDIF
 	// OP_CHECKSIG
 
-	// StripLogicalOpcodes - expected output
 
-	// OP_SHA256 8b783f47c7626ddcb571c7f2c2c948f30d0ee5bc7b8de0b870d0210df9ce9f26 OP_EQUAL
-	// 0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798
-	// OP_CHECKSIG
-
-	// OP_SHA256 8b783f47c7626ddcb571c7f2c2c948f30d0ee5bc7b8de0b870d0210df9ce9f26 OP_EQUAL
-	// 1499597514 OP_CHECKLOCKTIMEVERIFY OP_DROP
-	// 02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5
-	// OP_CHECKSIG
 	scriptStr := "a8208b783f47c7626ddcb571c7f2c2c948f30d0ee5bc7b8de0b870d0210df9ce9f268763210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f817986704ca0a6259b1752102c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee568ac"
 	redeemPaths := [][]bool{
 		{true},
@@ -146,6 +98,64 @@ func getHashlock() (*scriptBranchFixture, error) {
 		"a8208b783f47c7626ddcb571c7f2c2c948f30d0ee5bc7b8de0b870d0210df9ce9f2687210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798ac",
 		"a8208b783f47c7626ddcb571c7f2c2c948f30d0ee5bc7b8de0b870d0210df9ce9f268704ca0a6259b1752102c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5ac",
 	}
+	// StripLogicalOpcodes - expected output
+
+	// OP_SHA256 8b783f47c7626ddcb571c7f2c2c948f30d0ee5bc7b8de0b870d0210df9ce9f26 OP_EQUAL   (true)
+	// 0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798
+	// OP_CHECKSIG
+
+	// OP_SHA256 8b783f47c7626ddcb571c7f2c2c948f30d0ee5bc7b8de0b870d0210df9ce9f26 OP_EQUAL   (false)
+	// 1499597514 OP_CHECKLOCKTIMEVERIFY OP_DROP
+	// 02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5
+	// OP_CHECKSIG
+	return mkFixture(scriptStr, redeemPaths, branchStr, strippedStr)
+}
+func mkNestedHashlockFixture() (*scriptBranchFixture, error) {
+	// Derived from https://github.com/bitcoin/bips/blob/master/bip-0114.mediawiki#hashed-time-lock-contract
+	// 1) Alice signs
+	// 2) Bob lacks the revocation value, so uses CLTV before signing
+	// 3) Bob has the revocation value, so can sign without timeout.
+
+	scriptStr := "a976149ec83aca9c5c4b41ff2bbed4b70615502fe28e6c876303805101b26d2103846c3da5ae467f9c6e6ea9195da13c95016826ab173086b04e30f6cc96b8481d671466a87e9821c983c50bdc8b5be90e7feb35aa46af87640122b17568210374586816d201ee6b5a0df3dc2216375cff348a65e447d1ec83dd6aad98e1694768ac"
+	redeemPaths := [][]bool{
+		{true},
+		{false, true},
+		{false, false},
+	}
+	branchStr := []string{
+		"a976149ec83aca9c5c4b41ff2bbed4b70615502fe28e6c876303805101b26d2103846c3da5ae467f9c6e6ea9195da13c95016826ab173086b04e30f6cc96b8481d67646868ac",
+		"a976149ec83aca9c5c4b41ff2bbed4b70615502fe28e6c8763671466a87e9821c983c50bdc8b5be90e7feb35aa46af876468210374586816d201ee6b5a0df3dc2216375cff348a65e447d1ec83dd6aad98e1694768ac",
+		"a976149ec83aca9c5c4b41ff2bbed4b70615502fe28e6c8763671466a87e9821c983c50bdc8b5be90e7feb35aa46af87640122b17568210374586816d201ee6b5a0df3dc2216375cff348a65e447d1ec83dd6aad98e1694768ac",
+	}
+	strippedStr := []string{
+		"a976149ec83aca9c5c4b41ff2bbed4b70615502fe28e6c8703805101b26d2103846c3da5ae467f9c6e6ea9195da13c95016826ab173086b04e30f6cc96b8481dac",
+		"a976149ec83aca9c5c4b41ff2bbed4b70615502fe28e6c871466a87e9821c983c50bdc8b5be90e7feb35aa46af87210374586816d201ee6b5a0df3dc2216375cff348a65e447d1ec83dd6aad98e16947ac",
+		"a976149ec83aca9c5c4b41ff2bbed4b70615502fe28e6c871466a87e9821c983c50bdc8b5be90e7feb35aa46af870122b175210374586816d201ee6b5a0df3dc2216375cff348a65e447d1ec83dd6aad98e16947ac",
+	}
+
+	// OP_HASH160 OP_DUP 9ec83aca9c5c4b41ff2bbed4b70615502fe28e6c OP_EQUAL             (true)
+	// 86400 OP_CHECKSEQUENCEVERIFY OP_2DROP
+	// 03846c3da5ae467f9c6e6ea9195da13c95016826ab173086b04e30f6cc96b8481d OP_CHECKSIG
+
+	// OP_HASH160 OP_DUP 9ec83aca9c5c4b41ff2bbed4b70615502fe28e6c OP_EQUAL             (false)
+	// 66a87e9821c983c50bdc8b5be90e7feb35aa46af OP_EQUAL                               (true)
+	// 0374586816d201ee6b5a0df3dc2216375cff348a65e447d1ec83dd6aad98e16947 OP_CHECKSIG
+
+	// OP_HASH160 OP_DUP 9ec83aca9c5c4b41ff2bbed4b70615502fe28e6c OP_EQUAL             (false)
+	// 66a87e9821c983c50bdc8b5be90e7feb35aa46af OP_EQUAL                               (false)
+	// 34 OP_CHECKLOCKTIMEVERIFY OP_DROP
+	// 0374586816d201ee6b5a0df3dc2216375cff348a65e447d1ec83dd6aad98e16947 OP_CHECKSIG
+	return mkFixture(scriptStr, redeemPaths, branchStr, strippedStr)
+}
+func getMultisigFixture() (*scriptBranchFixture, error) {
+	// This fixture has 0 degrees of freedom as far as logical
+	// opcodes are concerned, so the only possible pathway
+	// is the entire script
+
+	scriptStr := "5221028a3ed3051bc723fc7d6168c2d30ec4e409a2e3e390a17828348b4245f15539272103717ffcf3846543f3dc23f61e8f8267cf67b7d89f204cf9e536642954739ecc6b2103be2f90feaf8060c97542acbe6769f3c6703633515afa37976b37d51314e1ea2f53ae"
+	redeemPaths := [][]bool{{}}
+	branchStr := []string{scriptStr}
+	strippedStr := []string{scriptStr}
 
 	return mkFixture(scriptStr, redeemPaths, branchStr, strippedStr)
 }
@@ -235,18 +245,11 @@ func tstEvalScriptBranch(t *testing.T, idx int, fixture *scriptBranchFixture) {
 		t.Error(fmt.Errorf("Produced wrong exclusive branch for test\n(actual)   %s\n != \n(expected) %s", hex.EncodeToString(evaledBranch), hex.EncodeToString(fixture.redeemBranch[idx])))
 		return
 	}
-
-	_, err = StripLogicalOpcodes(evaledBranch)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
 }
 
 func TestEvalScriptBranch(t *testing.T) {
 	fixtures := make([]*scriptBranchFixture, 0)
-	fixture1, err := getHashLockConditionalScript()
+	fixture1, err := mkNestedHashlockFixture()
 	if err != nil {
 		t.Errorf("invalid fixture: %s", err)
 		return
@@ -258,7 +261,7 @@ func TestEvalScriptBranch(t *testing.T) {
 		return
 	}
 
-	fixture3, err := getHashlock()
+	fixture3, err := mkHashlockFixture()
 	if err != nil {
 		t.Errorf("invalid fixture: %s", err)
 		return
