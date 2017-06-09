@@ -8,9 +8,9 @@ import (
 )
 
 type scriptBranchFixture struct {
-	rawScript    []byte
-	redeemPaths  [][]bool
-	redeemBranch [][]byte
+	rawScript      []byte
+	redeemPaths    [][]bool
+	redeemBranch   [][]byte
 	strippedBranch [][]byte
 }
 
@@ -43,9 +43,9 @@ func mkFixture(scriptStr string, redeemPaths [][]bool, branchStr []string, strip
 	}
 
 	return &scriptBranchFixture{
-		rawScript:    s,
-		redeemPaths:  redeemPaths,
-		redeemBranch: branches,
+		rawScript:      s,
+		redeemPaths:    redeemPaths,
+		redeemBranch:   branches,
 		strippedBranch: stripped,
 	}, nil
 }
@@ -80,7 +80,7 @@ func getHashLockConditionalScript() (*scriptBranchFixture, error) {
 		"a976149ec83aca9c5c4b41ff2bbed4b70615502fe28e6c8763671466a87e9821c983c50bdc8b5be90e7feb35aa46af876468210374586816d201ee6b5a0df3dc2216375cff348a65e447d1ec83dd6aad98e1694768ac",
 		"a976149ec83aca9c5c4b41ff2bbed4b70615502fe28e6c8763671466a87e9821c983c50bdc8b5be90e7feb35aa46af87640122b17568210374586816d201ee6b5a0df3dc2216375cff348a65e447d1ec83dd6aad98e1694768ac",
 	}
-	strippedStr := []string {
+	strippedStr := []string{
 		"a976149ec83aca9c5c4b41ff2bbed4b70615502fe28e6c8703805101b26d2103846c3da5ae467f9c6e6ea9195da13c95016826ab173086b04e30f6cc96b8481dac",
 		"a976149ec83aca9c5c4b41ff2bbed4b70615502fe28e6c871466a87e9821c983c50bdc8b5be90e7feb35aa46af87210374586816d201ee6b5a0df3dc2216375cff348a65e447d1ec83dd6aad98e16947ac",
 		"a976149ec83aca9c5c4b41ff2bbed4b70615502fe28e6c871466a87e9821c983c50bdc8b5be90e7feb35aa46af870122b175210374586816d201ee6b5a0df3dc2216375cff348a65e447d1ec83dd6aad98e16947ac",
@@ -206,7 +206,7 @@ func tstStripLogicalOpcodes(t *testing.T, script []byte, expectedScript []byte) 
 	}
 
 	if len(parsedStripped) != len(parsedExpectedScript) {
-		t.Errorf("Invalid count for stripped script, abort");
+		t.Errorf("Invalid count for stripped script, abort")
 		return
 	}
 
