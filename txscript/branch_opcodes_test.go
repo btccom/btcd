@@ -212,7 +212,7 @@ func tstStripLogicalOpcodes(t *testing.T, script []byte, expectedScript []byte) 
 
 	for i := 0; i < len(parsedExpectedScript); i++ {
 		if parsedExpectedScript[i].opcode != parsedStripped[i].opcode {
-			t.Error("Stripped opcode did not match expected opcode at pos %d", i)
+			t.Errorf("Stripped opcode did not match expected opcode at pos %d", i)
 			return
 		}
 	}

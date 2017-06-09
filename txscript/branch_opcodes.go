@@ -69,7 +69,7 @@ type astNode struct {
 func (a *astNode) depth() int {
 	ctr := 0
 	for ptr := a; ptr != nil; ptr = ptr.parent {
-		ctr += 1
+		ctr++
 	}
 	return ctr
 }
@@ -180,7 +180,7 @@ func EvalScriptBranch(vfInput []bool, script []byte) ([]byte, error) {
 		opcode := int(pop.opcode.value)
 
 		if opcode > OP_16 {
-			nOpCount += 1
+			nOpCount++
 			if nOpCount > MaxOpsPerScript {
 				err := fmt.Errorf("exceeded max operation limit of %d",
 					MaxOpsPerScript)
