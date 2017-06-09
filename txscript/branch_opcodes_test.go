@@ -1,15 +1,15 @@
 package txscript
 
 import (
-	"testing"
-	"fmt"
-	"encoding/hex"
 	"bytes"
+	"encoding/hex"
+	"fmt"
+	"testing"
 )
 
 type scriptBranchFixture struct {
-	rawScript []byte
-	redeemPaths [][]bool
+	rawScript    []byte
+	redeemPaths  [][]bool
 	redeemBranch [][]byte
 }
 
@@ -19,6 +19,7 @@ func getMultisigFixture() (*scriptBranchFixture, error) {
 	// is the entire script
 
 	scriptStr := "5221028a3ed3051bc723fc7d6168c2d30ec4e409a2e3e390a17828348b4245f15539272103717ffcf3846543f3dc23f61e8f8267cf67b7d89f204cf9e536642954739ecc6b2103be2f90feaf8060c97542acbe6769f3c6703633515afa37976b37d51314e1ea2f53ae"
+
 	s, err := hex.DecodeString(scriptStr)
 	if err != nil {
 		return nil, err
@@ -37,8 +38,8 @@ func getMultisigFixture() (*scriptBranchFixture, error) {
 	}
 
 	return &scriptBranchFixture{
-		rawScript: s,
-		redeemPaths: redeemPaths,
+		rawScript:    s,
+		redeemPaths:  redeemPaths,
 		redeemBranch: branches,
 	}, nil
 }
@@ -49,16 +50,17 @@ func getHashLockConditionalScript() (*scriptBranchFixture, error) {
 	// 1) Alice signs
 	// 2) Bob lacks the revocation value, so uses CLTV before signing
 	// 3) Bob has the revocation value, so can sign without timeout.
+	scriptStr := "a976149ec83aca9c5c4b41ff2bbed4b70615502fe28e6c876303805101b26d2103846c3da5ae467f9c6e6ea9195da13c95016826ab173086b04e30f6cc96b8481d671466a87e9821c983c50bdc8b5be90e7feb35aa46af87640122b17568210374586816d201ee6b5a0df3dc2216375cff348a65e447d1ec83dd6aad98e1694768ac"
 
-	s, err := hex.DecodeString("a976149ec83aca9c5c4b41ff2bbed4b70615502fe28e6c876303805101b26d2103846c3da5ae467f9c6e6ea9195da13c95016826ab173086b04e30f6cc96b8481d671466a87e9821c983c50bdc8b5be90e7feb35aa46af87640122b17568210374586816d201ee6b5a0df3dc2216375cff348a65e447d1ec83dd6aad98e1694768ac")
+	s, err := hex.DecodeString(scriptStr)
 	if err != nil {
 		return nil, err
 	}
 
 	redeemPaths := [][]bool{
 		{true},
-		{true,false},
-		{false,false},
+		{false, true},
+		{false, false},
 	}
 
 	branchStr := []string{
@@ -77,8 +79,8 @@ func getHashLockConditionalScript() (*scriptBranchFixture, error) {
 	}
 
 	return &scriptBranchFixture{
-		rawScript: s,
-		redeemPaths: redeemPaths,
+		rawScript:    s,
+		redeemPaths:  redeemPaths,
 		redeemBranch: branches,
 	}, nil
 }
@@ -88,8 +90,9 @@ func getHashlock() (*scriptBranchFixture, error) {
 	// This script has two possible redeem pathways
 	// 1) Alice has the reveal value and signs
 	// 2) Bob lacks the reveal
+	scriptStr := "a8208b783f47c7626ddcb571c7f2c2c948f30d0ee5bc7b8de0b870d0210df9ce9f268763210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f817986704ca0a6259b1752102c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee568ac"
 
-	s, err := hex.DecodeString("a8208b783f47c7626ddcb571c7f2c2c948f30d0ee5bc7b8de0b870d0210df9ce9f268763210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f817986704ca0a6259b1752102c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee568ac")
+	s, err := hex.DecodeString(scriptStr)
 	if err != nil {
 		return nil, err
 	}
@@ -114,22 +117,63 @@ func getHashlock() (*scriptBranchFixture, error) {
 	}
 
 	return &scriptBranchFixture{
-		rawScript: s,
-		redeemPaths: redeemPaths,
+		rawScript:    s,
+		redeemPaths:  redeemPaths,
 		redeemBranch: branches,
 	}, nil
 }
 
-func tstEvalScriptBranch(t *testing.T, idx int, fixture *scriptBranchFixture) {
-
-	branch1, err := EvalScriptBranch(fixture.redeemPaths[idx], fixture.rawScript)
+// test that we can reproduce the test fixtures logical AST
+func tstGetScriptAst(t *testing.T, fixture *scriptBranchFixture) {
+	ast, err := GetBranchAst(fixture.rawScript)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	if !bytes.Equal(branch1, fixture.redeemBranch[idx]) {
-		t.Error(fmt.Errorf("Produced wrong exclusive branch for test\n(actual)   %s\n != \n(expected) %s", hex.EncodeToString(branch1), hex.EncodeToString(fixture.redeemBranch[idx])))
+	found := make(map[int]bool, len(ast))
+	for j, desc := range fixture.redeemPaths {
+		f := false
+		for _, cmp := range ast {
+			if len(cmp) == len(desc) {
+				ok := true
+				for i := 0; i < len(cmp); i++ {
+					if cmp[i] != desc[i] {
+						ok = false
+					}
+				}
+
+				if ok {
+					f = true
+				}
+			}
+		}
+		found[j] = f
+	}
+
+	for j, f := range found {
+		if !f {
+			t.Errorf("Did not find expected fixture in result %d %v", j, fixture.redeemPaths[j])
+			return
+		}
+	}
+}
+
+// test we can produce the same branch as the test fixture
+func tstEvalScriptBranch(t *testing.T, idx int, fixture *scriptBranchFixture) {
+
+	script := fixture.rawScript
+	path := fixture.redeemPaths[idx]
+	branch := fixture.redeemBranch[idx]
+
+	evaledBranch, err := EvalScriptBranch(path, script)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	if !bytes.Equal(evaledBranch, branch) {
+		t.Error(fmt.Errorf("Produced wrong exclusive branch for test\n(actual)   %s\n != \n(expected) %s", hex.EncodeToString(evaledBranch), hex.EncodeToString(fixture.redeemBranch[idx])))
 		return
 	}
 }
@@ -139,19 +183,19 @@ func TestEvalScriptBranch(t *testing.T) {
 	fixture1, err := getHashLockConditionalScript()
 	if err != nil {
 		t.Errorf("invalid fixture: %s", err)
-		return;
+		return
 	}
 
 	fixture2, err := getMultisigFixture()
 	if err != nil {
 		t.Errorf("invalid fixture: %s", err)
-		return;
+		return
 	}
 
 	fixture3, err := getHashlock()
 	if err != nil {
 		t.Errorf("invalid fixture: %s", err)
-		return;
+		return
 	}
 
 	fixtures = append(fixtures, fixture1)
@@ -159,9 +203,14 @@ func TestEvalScriptBranch(t *testing.T) {
 	fixtures = append(fixtures, fixture3)
 
 	for i := 0; i < len(fixtures); i++ {
+		description := fmt.Sprintf("GetScriptAst fixture %d", i)
+		t.Run(description, func(t *testing.T) {
+			tstGetScriptAst(t, fixtures[i])
+		})
+
 		for j := 0; j < len(fixtures[i].redeemPaths); j++ {
 			description := fmt.Sprintf("EvalScriptCase fixture %d, pathway %d", i, j)
-			t.Run(description, func (t *testing.T) {
+			t.Run(description, func(t *testing.T) {
 				tstEvalScriptBranch(t, j, fixtures[i])
 			})
 		}
