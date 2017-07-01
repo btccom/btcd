@@ -2269,6 +2269,7 @@ func handleGetMiningInfo(s *rpcServer, cmd interface{}, closeChan <-chan struct{
 	best := s.chain.BestSnapshot()
 	result := btcjson.GetMiningInfoResult{
 		Blocks:             int64(best.Height),
+		CurrentBlockSize:   best.BlockSize,
 		CurrentBlockWeight: best.BlockWeight,
 		CurrentBlockTx:     best.NumTxns,
 		Difficulty:         getDifficultyRatio(best.Bits),
