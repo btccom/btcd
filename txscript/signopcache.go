@@ -451,8 +451,11 @@ func (s *signOpCode) IncompleteSigs(data *txVerifyData) (map[int]*SignatureInfo,
 				if data.sigVersion == 1 {
 					sigHashes := NewTxSigHashes(data.tx)
 
-					shash = calcWitnessSignatureHash(subscript, sigHashes, hashType,
+					shash, err = calcWitnessSignatureHash(subscript, sigHashes, hashType,
 						data.tx, data.txIdx, data.inputAmount)
+					if err != nil {
+						continue
+					}
 				} else {
 					shash = calcSignatureHash(subscript, hashType, data.tx, data.txIdx)
 				}
