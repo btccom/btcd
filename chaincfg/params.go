@@ -787,11 +787,15 @@ func IsPubKeyHashAddrID(id byte) bool {
 }
 
 // RegisterBech32SegwitPrefixes registers bech32 segwit prefixes parameters for a Bitcoin network.
-func RegisterBech32SegwitPrefixes(params *Params) error {
+func RegisterBech32SegwitPrefixes(params *Params) {
 	// A valid Bech32 encoded segwit address always has as prefix the
 	// human-readable part for the given net followed by '1'.
-	bech32SegwitPrefixes[params.Bech32HRPSegwit+"1"] = struct{}{}
-	return nil
+	if _, ok := bech32SegwitPrefixes[params.Bech32HRPSegwit+"1"];ok {
+		return
+	} else{
+		bech32SegwitPrefixes[params.Bech32HRPSegwit+"1"] = struct{}{}
+	}
+	return
 }
 
 // IsScriptHashAddrID returns whether the id is an identifier known to prefix a
