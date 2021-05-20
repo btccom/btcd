@@ -471,6 +471,13 @@ func TestRegister(t *testing.T) {
 					test.name, regTest.name, err, regTest.err)
 			}
 		}
+		for _, regTest := range test.register {
+			err := RegisterBech32SegwitPrefixes(regTest.params)
+			if err != regTest.err {
+				t.Errorf("%s:%s: Registered Bech32 Segwit Prefixes with unexpected error: got %v expected %v",
+					test.name, regTest.name, err, regTest.err)
+			}
+		}
 		for i, magTest := range test.p2pkhMagics {
 			valid := IsPubKeyHashAddrID(magTest.magic)
 			if valid != magTest.valid {
